@@ -96,6 +96,7 @@ The number of applications deployed is handled by the `environments_internal_nam
 ![Customizing the environment name](https://raw.githubusercontent.com/aws-ia/terraform-aws-mendix-private-cloud/main/doc/deployment_guide/images/environments_internal_names.png)
 
 The internal name must match the name that you specify in the `environments_internal_names` variable when you create your Mendix app.
+Please ensure that the naming of internal name matches the limitations described in the image provided above.
 
 ## Provision a new environment
 
