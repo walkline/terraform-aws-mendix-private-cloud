@@ -36,7 +36,11 @@ resource "helm_release" "grafana" {
     templatefile(
       "${path.module}/helm-values/grafana-values.yaml.tpl",
       {
-        mendix_native  = indent(8, templatefile("${path.module}/dashboards/mendix_native.json.tpl", {})),
+        mendix_native  = indent(8, templatefile("${path.module}/dashboards/mendix_native.json.tpl", {
+          awsAccountId    = var.account_id
+          awsLogGroupARN  = var.cloudwatch_log_group_arn
+          awsLogGroupName = var.cloudwatch_log_group_name
+        })),
         pvc_disk_space = indent(8, templatefile("${path.module}/dashboards/pvc_disk_space.json.tpl", {})),
         kubernetes     = indent(8, templatefile("${path.module}/dashboards/kubernetes.json.tpl", {})),
         rds            = indent(8, templatefile("${path.module}/dashboards/rds.json.tpl", {})),
