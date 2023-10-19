@@ -202,21 +202,23 @@ module "eks_blueprints_kubernetes_addons" {
     ]
   }
 
-  enable_kube_prometheus_stack = true
+  enable_kube_prometheus_stack = var.enable_cloudwatch_stack ? false : true
   kube_prometheus_stack        = {
     namespace = "prometheus"
     values = [templatefile("${path.module}/helm-values/prometheus-values.yaml", {})]
   }
 
-#  enable_aws_for_fluentbit = true
-#  aws_for_fluentbit_cw_log_group = {
-#    name = aws_cloudwatch_log_group.aws_for_fluentbit.name
-#  }
+  enable_aws_for_fluentbit = var.enable_cloudwatch_stack
+  aws_for_fluentbit_cw_log_group = {
+    name = aws_cloudwatch_log_group.aws_for_fluentbit[0].name
+  }
 
   depends_on = [module.eks_blueprints, aws_route53_zone.cluster_dns]
 }
 
 resource "aws_cloudwatch_log_group" "aws_for_fluentbit" {
+  count = var.enable_cloudwatch_stack ? 1 : 0
+
   name = "/aws/eks/${module.eks_blueprints.cluster_name}/aws-fluentbit-logs"
 
   retention_in_days = 30
@@ -230,8 +232,10 @@ module "monitoring" {
   oidc_provider = module.eks_blueprints.oidc_provider
   domain_name   = var.domain_name
 
-  cloudwatch_log_group_arn  = aws_cloudwatch_log_group.aws_for_fluentbit.arn
-  cloudwatch_log_group_name = aws_cloudwatch_log_group.aws_for_fluentbit.name
+  cloudwatch_log_group_arn  = aws_cloudwatch_log_group.aws_for_fluentbit[0].arn
+  cloudwatch_log_group_name = aws_cloudwatch_log_group.aws_for_fluentbit[0].name
+
+  enable_cloudwatch_stack = var.enable_cloudwatch_stack
 
   depends_on = [module.eks_blueprints_kubernetes_addons]
 }
@@ -277,6 +281,8 @@ resource "helm_release" "mendix_installer" {
 }
 
 resource "aws_eks_addon" "adot_addon" {
+  count = var.enable_cloudwatch_stack ? 1 : 0
+
   cluster_name                = module.eks_blueprints.cluster_name
   addon_name                  = "adot"
   addon_version               = "v0.80.0-eksbuild.2"
@@ -296,26 +302,6 @@ module "ebs_csi_driver_irsa" {
     main = {
       provider_arn               = module.eks_blueprints.oidc_provider_arn
       namespace_service_accounts = ["kube-system:ebs-csi-controller-sa"]
-    }
-  }
-}
-
-module "adot_collector_irsa" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.20"
-
-  role_name_prefix = "${module.eks_blueprints.cluster_name}-adot-collector"
-
-  role_policy_arns = {
-    prometheus = "arn:aws:iam::aws:policy/AmazonPrometheusRemoteWriteAccess",
-    xray = "arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess",
-    cloud_watch = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
-  }
-
-  oidc_providers = {
-    main = {
-      provider_arn               = module.eks_blueprints.oidc_provider_arn
-      namespace_service_accounts = ["mendix:adot-collector"]
     }
   }
 }

@@ -32,3 +32,9 @@ variable "cloudwatch_log_group_arn" {
   type        = string
   description = "CloudWatch log group ARN"
 }
+
+variable "enable_cloudwatch_stack" {
+  type        = bool
+  description = "Enables CloudWatch as a backend for metrics and logs."
+  default     = false
+}
