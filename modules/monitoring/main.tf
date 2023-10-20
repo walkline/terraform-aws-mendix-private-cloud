@@ -186,6 +186,8 @@ resource "kubernetes_cluster_role_binding" "otel_role_binding" {
 }
 
 resource "helm_release" "adot-crd" {
+  count = var.enable_cloudwatch_stack ? 1 : 0
+
   name      = "adot-crd"
   chart     = "${path.module}/charts/adot-crd"
   namespace = "mendix"

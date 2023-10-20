@@ -210,7 +210,7 @@ module "eks_blueprints_kubernetes_addons" {
 
   enable_aws_for_fluentbit = var.enable_cloudwatch_stack
   aws_for_fluentbit_cw_log_group = {
-    name = aws_cloudwatch_log_group.aws_for_fluentbit[0].name
+    name = var.enable_cloudwatch_stack ? aws_cloudwatch_log_group.aws_for_fluentbit[0].name : ""
   }
 
   depends_on = [module.eks_blueprints, aws_route53_zone.cluster_dns]
@@ -232,8 +232,8 @@ module "monitoring" {
   oidc_provider = module.eks_blueprints.oidc_provider
   domain_name   = var.domain_name
 
-  cloudwatch_log_group_arn  = aws_cloudwatch_log_group.aws_for_fluentbit[0].arn
-  cloudwatch_log_group_name = aws_cloudwatch_log_group.aws_for_fluentbit[0].name
+  cloudwatch_log_group_arn  = var.enable_cloudwatch_stack ? aws_cloudwatch_log_group.aws_for_fluentbit[0].arn : ""
+  cloudwatch_log_group_name = var.enable_cloudwatch_stack ? aws_cloudwatch_log_group.aws_for_fluentbit[0].name : ""
 
   enable_cloudwatch_stack = var.enable_cloudwatch_stack
 
