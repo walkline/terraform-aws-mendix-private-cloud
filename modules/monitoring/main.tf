@@ -14,19 +14,6 @@ resource "aws_secretsmanager_secret_version" "grafana" {
   secret_string = random_password.grafana.result
 }
 
-resource "helm_release" "loki" {
-  count = var.enable_cloudwatch_stack ? 0 : 1
-
-  name             = "loki-stack"
-  repository       = "https://grafana.github.io/helm-charts"
-  chart            = "loki-stack"
-  namespace        = "loki"
-  create_namespace = true
-  values = [
-    templatefile("${path.module}/helm-values/loki-stack-values.yaml", {})
-  ]
-}
-
 resource "helm_release" "grafana" {
   name             = "grafana"
   repository       = "https://grafana.github.io/helm-charts"
@@ -39,14 +26,6 @@ resource "helm_release" "grafana" {
       "${path.module}/helm-values/grafana-values.yaml.tpl",
       {
         mendix_native  = indent(8,
-          var.enable_cloudwatch_stack ?
-            templatefile("${path.module}/dashboards/mendix_native_cloudwatch.json.tpl", {
-              awsRegion       = var.aws_region
-              awsAccountId    = var.account_id
-              awsLogGroupARN  = var.cloudwatch_log_group_arn
-              awsLogGroupName = var.cloudwatch_log_group_name
-            })
-            :
             templatefile("${path.module}/dashboards/mendix_native.json.tpl", {
               awsAccountId    = var.account_id
               awsLogGroupARN  = var.cloudwatch_log_group_arn
@@ -60,6 +39,8 @@ resource "helm_release" "grafana" {
         role_arn       = aws_iam_role.grafana_irsa_role.arn
         admin_password = aws_secretsmanager_secret_version.grafana.secret_string
         aws_region     = var.aws_region
+
+        prometheus_endpoint = aws_prometheus_workspace.prometheus_workspace.prometheus_endpoint
       }
   )]
 }
@@ -96,6 +77,17 @@ resource "aws_iam_role_policy" "grafana_irsa_policy" {
         "Effect" : "Allow",
         "Resource" : "arn:aws:logs:${var.aws_region}:${var.account_id}:log-group:*:log-stream:*",
         "Sid" : "AllowReadingLogsFromCloudWatch"
+      },
+      {
+        "Action" : [
+          "aps:GetSeries",
+          "aps:GetLabels",
+          "aps:GetMetricMetadata",
+          "aps:QueryMetrics"
+        ],
+        "Effect" : "Allow",
+        "Resource" : aws_prometheus_workspace.prometheus_workspace.arn,
+        "Sid" : "AllowReadingPrometheusMetrics"
       },
       {
         "Action" : [
@@ -141,8 +133,6 @@ resource "aws_iam_role" "grafana_irsa_role" {
 }
 
 resource "kubernetes_cluster_role" "otel_role" {
-  count = var.enable_cloudwatch_stack ? 1 : 0
-
   metadata {
     name = "otel-prometheus-role"
   }
@@ -166,8 +156,6 @@ resource "kubernetes_cluster_role" "otel_role" {
 }
 
 resource "kubernetes_cluster_role_binding" "otel_role_binding" {
-  count = var.enable_cloudwatch_stack ? 1 : 0
-
   metadata {
     name = "otel-prometheus-role-binding"
   }
@@ -186,16 +174,15 @@ resource "kubernetes_cluster_role_binding" "otel_role_binding" {
 }
 
 resource "helm_release" "adot-crd" {
-  count = var.enable_cloudwatch_stack ? 1 : 0
-
   name      = "adot-crd"
   chart     = "${path.module}/charts/adot-crd"
   namespace = "mendix"
   values = [
     templatefile("${path.module}/helm-values/adot-crd-values.yaml.tpl",
       {
-        cluster_name = var.cluster_name
-        aws_region   = var.aws_region
+        cluster_name        = var.cluster_name
+        aws_region          = var.aws_region
+        prometheus_endpoint = aws_prometheus_workspace.prometheus_workspace.prometheus_endpoint
       })
   ]
 
@@ -203,13 +190,11 @@ resource "helm_release" "adot-crd" {
 }
 
 resource "kubernetes_service_account" "adot_collector_sa" {
-  count = var.enable_cloudwatch_stack ? 1 : 0
-
   metadata {
     name = "adot-collector"
     namespace = "mendix"
     annotations = {
-      "eks.amazonaws.com/role-arn" = module.adot_collector_irsa[0].iam_role_arn
+      "eks.amazonaws.com/role-arn" = module.adot_collector_irsa.iam_role_arn
     }
   }
 }
@@ -217,8 +202,6 @@ resource "kubernetes_service_account" "adot_collector_sa" {
 module "adot_collector_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
   version = "~> 5.20"
-
-  count = var.enable_cloudwatch_stack ? 1 : 0
 
   role_name_prefix = "${var.cluster_name}-adot-collector"
 
@@ -234,4 +217,8 @@ module "adot_collector_irsa" {
       namespace_service_accounts = ["mendix:adot-collector"]
     }
   }
+}
+
+resource "aws_prometheus_workspace" "prometheus_workspace" {
+  alias = "mendix"
 }

@@ -73,9 +73,3 @@ variable "postgres_version" {
   description = "The version of Postgres that terraform would create."
   default     = "14.8"
 }
-
-variable "enable_cloudwatch_stack" {
-  type        = bool
-  description = "Enables CloudWatch as a backend for metrics and logs."
-  default     = false
-}

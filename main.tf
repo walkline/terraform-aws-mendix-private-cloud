@@ -139,12 +139,6 @@ module "eks_blueprints" {
       disk_size       = 25
     }
   }
-
-#  cluster_addons = {
-#    adot = {
-#      addon_version = "v0.80.0-eksbuild.2"
-#    }
-#  }
 }
 
 module "eks_blueprints_kubernetes_addons" {
@@ -202,23 +196,15 @@ module "eks_blueprints_kubernetes_addons" {
     ]
   }
 
-  enable_kube_prometheus_stack = var.enable_cloudwatch_stack ? false : true
-  kube_prometheus_stack        = {
-    namespace = "prometheus"
-    values = [templatefile("${path.module}/helm-values/prometheus-values.yaml", {})]
-  }
-
-  enable_aws_for_fluentbit = var.enable_cloudwatch_stack
+  enable_aws_for_fluentbit = true
   aws_for_fluentbit_cw_log_group = {
-    name = var.enable_cloudwatch_stack ? aws_cloudwatch_log_group.aws_for_fluentbit[0].name : ""
+    name = aws_cloudwatch_log_group.aws_for_fluentbit.name
   }
 
   depends_on = [module.eks_blueprints, aws_route53_zone.cluster_dns]
 }
 
 resource "aws_cloudwatch_log_group" "aws_for_fluentbit" {
-  count = var.enable_cloudwatch_stack ? 1 : 0
-
   name = "/aws/eks/${module.eks_blueprints.cluster_name}/aws-fluentbit-logs"
 
   retention_in_days = 30
@@ -232,10 +218,8 @@ module "monitoring" {
   oidc_provider = module.eks_blueprints.oidc_provider
   domain_name   = var.domain_name
 
-  cloudwatch_log_group_arn  = var.enable_cloudwatch_stack ? aws_cloudwatch_log_group.aws_for_fluentbit[0].arn : ""
-  cloudwatch_log_group_name = var.enable_cloudwatch_stack ? aws_cloudwatch_log_group.aws_for_fluentbit[0].name : ""
-
-  enable_cloudwatch_stack = var.enable_cloudwatch_stack
+  cloudwatch_log_group_arn  = aws_cloudwatch_log_group.aws_for_fluentbit.arn
+  cloudwatch_log_group_name = aws_cloudwatch_log_group.aws_for_fluentbit.name
 
   depends_on = [module.eks_blueprints_kubernetes_addons]
 }
@@ -281,8 +265,6 @@ resource "helm_release" "mendix_installer" {
 }
 
 resource "aws_eks_addon" "adot_addon" {
-  count = var.enable_cloudwatch_stack ? 1 : 0
-
   cluster_name                = module.eks_blueprints.cluster_name
   addon_name                  = "adot"
   addon_version               = "v0.80.0-eksbuild.2"
