@@ -25,12 +25,12 @@ resource "helm_release" "grafana" {
     templatefile(
       "${path.module}/helm-values/grafana-values.yaml.tpl",
       {
-        mendix_native  = indent(8,
-            templatefile("${path.module}/dashboards/mendix_native.json.tpl", {
-              awsAccountId    = var.account_id
-              awsLogGroupARN  = var.cloudwatch_log_group_arn
-              awsLogGroupName = var.cloudwatch_log_group_name
-            })
+        mendix_native = indent(8,
+          templatefile("${path.module}/dashboards/mendix_native.json.tpl", {
+            awsAccountId    = var.account_id
+            awsLogGroupARN  = var.cloudwatch_log_group_arn
+            awsLogGroupName = var.cloudwatch_log_group_name
+          })
         ),
         pvc_disk_space = indent(8, templatefile("${path.module}/dashboards/pvc_disk_space.json.tpl", {})),
         kubernetes     = indent(8, templatefile("${path.module}/dashboards/kubernetes.json.tpl", {})),
@@ -151,7 +151,7 @@ resource "kubernetes_cluster_role" "otel_role" {
 
   rule {
     non_resource_urls = ["/metrics"]
-    verbs = ["get"]
+    verbs             = ["get"]
   }
 }
 
@@ -183,7 +183,7 @@ resource "helm_release" "adot-crd" {
         cluster_name        = var.cluster_name
         aws_region          = var.aws_region
         prometheus_endpoint = aws_prometheus_workspace.prometheus_workspace.prometheus_endpoint
-      })
+    })
   ]
 
   depends_on = [kubernetes_cluster_role_binding.otel_role_binding]
@@ -191,7 +191,7 @@ resource "helm_release" "adot-crd" {
 
 resource "kubernetes_service_account" "adot_collector_sa" {
   metadata {
-    name = "adot-collector"
+    name      = "adot-collector"
     namespace = "mendix"
     annotations = {
       "eks.amazonaws.com/role-arn" = module.adot_collector_irsa.iam_role_arn
@@ -206,8 +206,8 @@ module "adot_collector_irsa" {
   role_name_prefix = "${var.cluster_name}-adot-collector"
 
   role_policy_arns = {
-    prometheus = "arn:aws:iam::aws:policy/AmazonPrometheusRemoteWriteAccess",
-    xray = "arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess",
+    prometheus  = "arn:aws:iam::aws:policy/AmazonPrometheusRemoteWriteAccess",
+    xray        = "arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess",
     cloud_watch = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
   }
 
