@@ -221,7 +221,7 @@ module "monitoring" {
   cloudwatch_log_group_arn  = aws_cloudwatch_log_group.aws_for_fluentbit.arn
   cloudwatch_log_group_name = aws_cloudwatch_log_group.aws_for_fluentbit.name
 
-  depends_on = [module.eks_blueprints_kubernetes_addons]
+  depends_on = [module.eks_blueprints_kubernetes_addons, aws_eks_addon.adot_addon]
 }
 
 resource "kubernetes_namespace" "mendix" {
